@@ -18,4 +18,4 @@ claimStsRewards();
 autoVoteDelegate();
 scheduleDynamicEclpRangeUpdater();
 scheduleTreasuryNotifications();
-scheduleDynamicFeeUpdater();
+// scheduleDynamicFeeUpdater();

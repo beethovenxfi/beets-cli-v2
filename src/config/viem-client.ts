@@ -11,10 +11,10 @@ export const sonic = {
     },
     rpcUrls: {
         default: {
-            http: ['https://rpc.soniclabs.com'],
+            http: [process.env.SONIC_RPC_URL!],
         },
         public: {
-            http: ['https://rpc.soniclabs.com'],
+            http: [process.env.SONIC_RPC_URL!],
         },
     },
     blockExplorers: {

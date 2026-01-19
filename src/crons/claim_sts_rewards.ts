@@ -10,7 +10,7 @@ const sonicStakingAbi = sonicStakingAbiJson as any;
 const sonicStakingContract = '0xe5da20f15420ad15de0fa650600afc998bbe3955';
 
 export async function claimStsRewards() {
-    console.log('Schedule claim sftmx rewards');
+    console.log('Schedule claim sts rewards');
     await claimAllStSRewards();
     // every 1 hours
     setInterval(claimAllStSRewards, 60 * 60000);
@@ -64,6 +64,12 @@ export async function claimAllStSRewards() {
             args: [validatorIds],
             account: walletClient.account,
         });
+
+        // check if simulation is successful
+        if (!request) {
+            console.log('Simulation failed, cannot claim sts rewards');
+            return;
+        }
 
         const hash = await walletClient.writeContract(request);
         await publicClient.waitForTransactionReceipt({ hash });

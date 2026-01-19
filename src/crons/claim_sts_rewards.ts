@@ -45,7 +45,7 @@ export async function claimAllStSRewards() {
             }`,
     })) as { data: { data: { stsGetGqlStakedSonicData: { delegatedValidators: { validatorId: string, assetsDelegated: string }[] } } } };
 
-    const validatorIds = response.data.data.stsGetGqlStakedSonicData.delegatedValidators.filter(v => BigInt(v.assetsDelegated) > 0).map((v) =>
+    const validatorIds = response.data.data.stsGetGqlStakedSonicData.delegatedValidators.filter(v => parseFloat(v.assetsDelegated) > 0).map((v) =>
         BigInt(v.validatorId),
     );
 

@@ -43,7 +43,7 @@ export async function voteCheck() {
         return;
     }
 
-    if (!response.data.result || response.data.result.data.json.bribefile.bribelist.length === 0) {
+    if (!response.data.result || !response.data.result.data || !response.data.result.data.json || !response.data.result.data.json.bribefile || !response.data.result.data.json.bribefile.bribelist || response.data.result.data.json.bribefile.bribelist.length === 0) {
         console.log('no data found');
         return;
     }

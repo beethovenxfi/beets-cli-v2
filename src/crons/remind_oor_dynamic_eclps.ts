@@ -194,15 +194,7 @@ export async function updateDynamicEclpRanges() {
 
             console.log(`Pool ${pool.name} balances: ${balance1}, ${balance2}`);
 
-            //BTC token, need higher threshold
-            if (token1.address === `0x0555e30da8f98308edb960aa94c0db47230d2b9c`) {
-                return balance1 < 0.8;
-            }
-            if (token2.address === `0x0555e30da8f98308edb960aa94c0db47230d2b9c`) {
-                return balance2 < 0.8;
-            }
-
-            return balance1 < 0.5 || balance2 < 0.5;
+            return balance1 < 0.8 || balance2 < 0.8;
         });
 
         let updatedRanges = 0;

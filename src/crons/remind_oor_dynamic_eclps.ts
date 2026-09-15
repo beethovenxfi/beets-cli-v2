@@ -1,6 +1,6 @@
 import { ChannelId, sendMessage } from '../interactions/send-message';
 import axios from 'axios';
-import { formatUnits } from 'viem';
+import { BaseError, ContractFunctionRevertedError, formatUnits } from 'viem';
 import { publicClient, createWalletClientFromPrivateKey } from '../config/viem-client';
 
 const BACKEND_URL = 'https://backend-v3.beets-ftm-node.com/graphql';
@@ -119,30 +119,49 @@ async function validateRateProviderPrice(
     }
 }
 
-async function updateRateProviderToEdge(rateProviderAddress: string): Promise<boolean> {
+type UpdateToEdgeResult = 'updated' | 'not_out_of_range' | 'failed';
+
+function isPoolNotOutOfRangeRevert(error: unknown): boolean {
+    if (!(error instanceof BaseError)) return false;
+    const revertError = error.walk((e) => e instanceof ContractFunctionRevertedError);
+    return revertError instanceof ContractFunctionRevertedError && revertError.reason === 'Pool not out of range';
+}
+
+async function updateRateProviderToEdge(rateProviderAddress: string): Promise<UpdateToEdgeResult> {
+    if (!process.env.RELIC_UPDATER) {
+        console.log('No RELIC_UPDATER private key configured');
+        return 'failed';
+    }
+
+    const walletClient = createWalletClientFromPrivateKey(process.env.RELIC_UPDATER);
+
+    let request;
     try {
-        if (!process.env.RELIC_UPDATER) {
-            console.log('No RELIC_UPDATER private key configured');
-            return false;
-        }
-
-        const walletClient = createWalletClientFromPrivateKey(process.env.RELIC_UPDATER);
-
-        const { request } = await publicClient.simulateContract({
+        ({ request } = await publicClient.simulateContract({
             address: rateProviderAddress as `0x${string}`,
             abi: RATE_PROVIDER_ABI,
             functionName: 'updateToEdge',
             account: walletClient.account,
-        });
+        }));
+    } catch (error) {
+        // Backend balances are only a heuristic; the contract decides based on feed price vs. ECLP alpha/beta
+        if (isPoolNotOutOfRangeRevert(error)) {
+            console.log(`Rate provider ${rateProviderAddress} not out of range on-chain, skipping update`);
+            return 'not_out_of_range';
+        }
+        console.error(`Error simulating updateToEdge for rate provider ${rateProviderAddress}:`, error);
+        return 'failed';
+    }
 
+    try {
         const hash = await walletClient.writeContract(request);
         await publicClient.waitForTransactionReceipt({ hash });
 
         console.log(`Successfully updated rate provider ${rateProviderAddress} to edge. Tx: ${hash}`);
-        return true;
+        return 'updated';
     } catch (error) {
         console.error(`Error updating rate provider ${rateProviderAddress}:`, error);
-        return false;
+        return 'failed';
     }
 }
 
@@ -221,12 +240,12 @@ export async function updateDynamicEclpRanges() {
                     );
 
                     if (isValidPrice) {
-                        const updateSuccess = await updateRateProviderToEdge(token.priceRateProviderData.address);
+                        const updateResult = await updateRateProviderToEdge(token.priceRateProviderData.address);
 
-                        if (updateSuccess) {
+                        if (updateResult === 'updated') {
                             updatedRanges++;
                             updateResults.push(`✅ Updated range for pool ${pool.name} (token ${token.symbol})`);
-                        } else {
+                        } else if (updateResult === 'failed') {
                             updateResults.push(
                                 `❌ Failed to update range for pool ${pool.name} (token ${token.symbol})`,
                             );

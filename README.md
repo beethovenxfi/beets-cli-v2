@@ -18,6 +18,8 @@ This bot runs the following automated tasks:
 3. **scheduleDynamicEclpRangeUpdater** - Updates dynamic ECLP ranges (runs every 1 hour)
 4. **scheduleTreasuryNotifications** - Monitors treasury transactions (runs every 1 hour)
 5. **scheduleDynamicFeeUpdater** - Updates dynamic swap fees (runs every 5 minutes)
+6. **scheduleStsSlashingMonitor** - Checks every 10 seconds whether any validator stS delegates to has been slashed and pauses the stS contract if so
+7. **scheduleStsClawBackMonitor** - Tracks pending stS clawbacks and reports when they are initiated, executable (after the withdraw delay) and executed (runs every 1 minute)
 
 ## Installation
 
@@ -43,6 +45,7 @@ cp .env.example .env
    - `RELIC_UPDATER` - Private key for relic updater wallet (without 0x prefix)
    - `FEE_UPDATER` - Private key for fee updater wallet (without 0x prefix)
    - `MD_DELEGATE` - Private key for MD delegate wallet (without 0x prefix)
+   - `STS_PAUSER` - Private key for the wallet allowed to pause the stS contract (without 0x prefix)
    - `SAFE_API_KEY` - Your Safe API key for treasury monitoring
 
 ## Running the Bot
@@ -79,6 +82,8 @@ beets-cli-v2/
 │   │   ├── remind_oor_dynamic_eclps.ts
 │   │   ├── notifyTreasuryTxns.ts
 │   │   ├── update_swap_fees.ts
+│   │   ├── monitor_sts_slashing.ts
+│   │   ├── monitor_sts_clawback.ts
 │   │   ├── latestVotes.json     # State: Last voting data
 │   │   └── latestNonceTreasury.json  # State: Treasury nonces
 │   └── interactions/

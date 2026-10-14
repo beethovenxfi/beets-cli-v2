@@ -40,21 +40,16 @@ let lastPendingClawBackAmount: bigint | undefined;
 const trackedClawBacks = new Map<bigint, TrackedClawBack>();
 
 export async function scheduleStsClawBackMonitor() {
-    console.log(`Schedule stS clawback monitor (every ${CHECK_INTERVAL_MS / 1000}s)`);
+    console.log('Schedule stS clawback monitor');
     await runStsClawBackCheck();
     setInterval(runStsClawBackCheck, CHECK_INTERVAL_MS);
 }
 
 async function runStsClawBackCheck() {
-    if (checkRunning) {
-        console.log('stS clawback check: previous run still in progress, skipping tick');
-        return;
-    }
+    if (checkRunning) return;
     checkRunning = true;
-    const started = Date.now();
     try {
         await checkStsClawBacks();
-        console.log(`stS clawback check done in ${Date.now() - started}ms`);
     } catch (e) {
         console.log(`stS clawback check failed: ${e}`);
     } finally {
@@ -69,25 +64,14 @@ export async function checkStsClawBacks() {
         functionName: 'pendingClawBackAmount',
     })) as bigint;
 
-    if (pendingClawBackAmount === 0n && trackedClawBacks.size === 0) {
-        console.log('stS clawback check: no pending clawbacks');
-        return;
-    }
-    console.log(
-        `stS clawback check: pendingClawBackAmount ${formatEther(pendingClawBackAmount)} S, tracking ${trackedClawBacks.size} withdraw id(s)`,
-    );
+    if (pendingClawBackAmount === 0n && trackedClawBacks.size === 0) return;
 
     // Only scan logs for new clawbacks when the pending amount changed (i.e. on a new initiate), not every tick
     if (pendingClawBackAmount !== lastPendingClawBackAmount) {
-        const previous = lastPendingClawBackAmount === undefined ? 'first run' : `${formatEther(lastPendingClawBackAmount)} S`;
-        console.log(`stS clawback check: pending amount changed (${previous} -> ${formatEther(pendingClawBackAmount)} S), scanning logs`);
         await discoverNewClawBacks();
         lastPendingClawBackAmount = pendingClawBackAmount;
     }
-    if (trackedClawBacks.size === 0) {
-        console.log('stS clawback check: no tracked clawbacks after scan');
-        return;
-    }
+    if (trackedClawBacks.size === 0) return;
 
     const withdrawIds = [...trackedClawBacks.keys()];
     const [withdrawDelay, ...requests] = (await publicClient.multicall({
@@ -110,16 +94,9 @@ export async function checkStsClawBacks() {
         const tracked = trackedClawBacks.get(withdrawId)!;
         const amount = `${Number(formatEther(request.assetAmount)).toFixed(0)} S`;
         const executableAt = request.requestTimestamp + withdrawDelay;
-        const due = now >= executableAt ? 'due' : `in ${Math.ceil(Number(executableAt - now) / 3600)}h`;
-        console.log(
-            `stS clawback ${withdrawId}: validator ${request.validatorId}, ${amount}, withdrawn=${request.isWithdrawn}, executable at ${formatTimestamp(
-                executableAt,
-            )} (${due})`,
-        );
 
         if (request.isWithdrawn) {
             trackedClawBacks.delete(withdrawId);
-            console.log(`stS clawback ${withdrawId} executed, stop tracking${tracked.reportedInitiated ? '' : ' (historical, not reporting)'}`);
             // Only report executions of clawbacks we announced, not historical ones found on the first scan
             if (tracked.reportedInitiated) {
                 await sendMessage(
@@ -158,7 +135,6 @@ async function discoverNewClawBacks() {
     const latestBlock = await publicClient.getBlockNumber();
     if (latestBlock < nextScanBlock) return;
 
-    console.log(`Scanning OperatorClawBackInitiated logs from block ${nextScanBlock} to ${latestBlock}`);
     const logs = await publicClient.getLogs({
         address: sonicStakingContract,
         event: clawBackInitiatedEvent,
@@ -166,11 +142,6 @@ async function discoverNewClawBacks() {
         toBlock: latestBlock,
     });
     nextScanBlock = latestBlock + 1n;
-    console.log(
-        `Found ${logs.length} clawback initiation(s): ${logs
-            .map((log) => `withdrawId ${log.args.withdrawId} validator ${log.args.validatorId}`)
-            .join(', ')}`,
-    );
 
     for (const log of logs) {
         const withdrawId = log.args.withdrawId!;

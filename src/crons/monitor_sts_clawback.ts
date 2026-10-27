@@ -122,9 +122,11 @@ export async function checkStsClawBacks() {
             const emergency = await isValidatorSlashed(request.validatorId);
             await sendMessage(
                 ChannelId.SERVER_STATUS,
-                `⏰ stS clawback ${withdrawId} from validator ${request.validatorId} (${amount}) can be executed now: call ${inlineCode(
-                    `operatorExecuteClawBack(${withdrawId}, ${emergency})`,
-                )} on ${inlineCode(sonicStakingContract)}${emergency ? ' (validator is slashed, emergency=true accepts the penalty)' : ''}.`,
+                `⏰ stS clawback ${withdrawId} from validator ${request.validatorId} (${amount}) can be executed now${
+                    emergency ? ' (validator is slashed, emergency=true accepts the penalty)' : ''
+                }.\nContract: ${inlineCode(sonicStakingContract)}\nFunction: ${inlineCode(
+                    'operatorExecuteClawBack',
+                )}\nwithdrawId: ${inlineCode(String(withdrawId))}\nemergency: ${inlineCode(String(emergency))}`,
             );
         }
     }

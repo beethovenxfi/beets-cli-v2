@@ -130,7 +130,11 @@ async function notifyValidatorStatusChanges(sfc: `0x${string}`, delegated: { id:
             if (flags.length > 0) {
                 await sendMessage(
                     ChannelId.SERVER_STATUS,
-                    `⚠️ stS validator ${v.id} is ${flags.join(' and ')} (SFC status ${status}, ${stake}).`,
+                    `⚠️ stS validator ${v.id} is ${flags.join(' and ')} (SFC status ${status}, ${stake}). To claw back the full stake:\nContract: ${inlineCode(
+                        sonicStakingContract,
+                    )}\nFunction: ${inlineCode('operatorInitiateClawBack')}\nvalidatorId: ${inlineCode(
+                        String(v.id),
+                    )}\namountAssets: ${inlineCode(String(v.stake))}`,
                 );
             } else if (previous !== undefined) {
                 await sendMessage(ChannelId.SERVER_STATUS, `✅ stS validator ${v.id} is back to OK (${stake}).`);

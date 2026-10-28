@@ -6,6 +6,8 @@ import sonicStakingAbiJson from '../../abi/SonicStaking.json';
 
 const sonicStakingAbi = sonicStakingAbiJson as any;
 const sonicStakingContract = '0xe5da20f15420ad15de0fa650600afc998bbe3955' as const;
+// Operator multisig that has to call operatorExecuteClawBack
+const operatorSafeUrl = 'https://app.safe.global/transactions/queue?safe=sonic:0x6840Bd91417373Af296cc263e312DfEBcAb494ae';
 
 const clawBackInitiatedEvent = parseAbiItem(
     'event OperatorClawBackInitiated(uint256 indexed withdrawId, uint256 indexed validatorId, uint256 amountAssets)',
@@ -124,7 +126,7 @@ export async function checkStsClawBacks() {
                 ChannelId.SERVER_STATUS,
                 `⏰ stS clawback ${withdrawId} from validator ${request.validatorId} (${amount}) can be executed now${
                     emergency ? ' (validator is slashed, emergency=true accepts the penalty)' : ''
-                }.\nContract: ${inlineCode(sonicStakingContract)}\nFunction: ${inlineCode(
+                }.\nMultisig: ${operatorSafeUrl}\nContract: ${inlineCode(sonicStakingContract)}\nFunction: ${inlineCode(
                     'operatorExecuteClawBack',
                 )}\nwithdrawId: ${inlineCode(String(withdrawId))}\nemergency: ${inlineCode(String(emergency))}`,
             );

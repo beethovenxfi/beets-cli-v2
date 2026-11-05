@@ -19,7 +19,7 @@ This bot runs the following automated tasks:
 4. **scheduleTreasuryNotifications** - Monitors treasury transactions (runs every 1 hour)
 5. **scheduleDynamicFeeUpdater** - Updates dynamic swap fees (runs every 5 minutes)
 6. **scheduleStsSlashingMonitor** - Checks every 10 seconds whether any validator stS delegates to has been slashed and pauses the stS contract if so
-7. **scheduleStsClawBackMonitor** - Tracks pending stS clawbacks and reports when they are initiated, executable (after the withdraw delay) and executed (runs every 1 minute)
+7. **scheduleStsClawBackMonitor** - Tracks pending stS clawbacks and reports when they are initiated, executable (after the withdraw delay) and executed (runs every 1 minute). The executable alert attaches a Safe Transaction Builder JSON that executes the clawback and delegates the clawed back S using the same rules as the delegatooooor proposer
 
 ## Installation
 

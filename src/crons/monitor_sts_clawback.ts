@@ -3,11 +3,13 @@ import { inlineCode } from '@discordjs/builders';
 import { ChannelId, sendMessage } from '../interactions/send-message';
 import { publicClient } from '../config/viem-client';
 import sonicStakingAbiJson from '../../abi/SonicStaking.json';
+import { buildClawBackBatch, formatS } from './sts_clawback_batch';
 
 const sonicStakingAbi = sonicStakingAbiJson as any;
 const sonicStakingContract = '0xe5da20f15420ad15de0fa650600afc998bbe3955' as const;
 // Operator multisig that has to call operatorExecuteClawBack
-const operatorSafeUrl = 'https://app.safe.global/transactions/queue?safe=sonic:0x6840Bd91417373Af296cc263e312DfEBcAb494ae';
+const operatorSafe = '0x6840Bd91417373Af296cc263e312DfEBcAb494ae' as const;
+const operatorSafeUrl = `https://app.safe.global/transactions/queue?safe=sonic:${operatorSafe}`;
 
 const clawBackInitiatedEvent = parseAbiItem(
     'event OperatorClawBackInitiated(uint256 indexed withdrawId, uint256 indexed validatorId, uint256 amountAssets)',
@@ -122,14 +124,33 @@ export async function checkStsClawBacks() {
         if (!tracked.reportedExecutable && now >= executableAt) {
             tracked.reportedExecutable = true;
             const emergency = await isValidatorSlashed(request.validatorId);
-            await sendMessage(
-                ChannelId.SERVER_STATUS,
-                `⏰ stS clawback ${withdrawId} from validator ${request.validatorId} (${amount}) can be executed now${
-                    emergency ? ' (validator is slashed, emergency=true accepts the penalty)' : ''
-                }.\nMultisig: ${operatorSafeUrl}\nContract: ${inlineCode(sonicStakingContract)}\nFunction: ${inlineCode(
-                    'operatorExecuteClawBack',
-                )}\nwithdrawId: ${inlineCode(String(withdrawId))}\nemergency: ${inlineCode(String(emergency))}`,
-            );
+            const content = `⏰ stS clawback ${withdrawId} from validator ${request.validatorId} (${amount}) can be executed now${
+                emergency ? ' (validator is slashed, emergency=true accepts the penalty)' : ''
+            }.\nMultisig: ${operatorSafeUrl}\nContract: ${inlineCode(sonicStakingContract)}\nFunction: ${inlineCode(
+                'operatorExecuteClawBack',
+            )}\nwithdrawId: ${inlineCode(String(withdrawId))}\nemergency: ${inlineCode(String(emergency))}`;
+
+            try {
+                const batch = await buildClawBackBatch(operatorSafe, withdrawId, request.validatorId, emergency);
+                const delegations = batch.delegations
+                    .map((d) => `• validator ${d.validatorId}: ${formatS(d.amount)}`)
+                    .join('\n');
+                await sendMessage(ChannelId.SERVER_STATUS, {
+                    content: `${content}\n\nAttached Transaction Builder batch executes the clawback (${formatS(
+                        batch.clawedBack,
+                    )} to the pool) and delegates it:\n${delegations || '• nothing, no validator has room'}${
+                        batch.undelegated > 0n ? `\nLeft in pool: ${formatS(batch.undelegated)}` : ''
+                    }\nAmounts are as of now, simulate before signing.`,
+                    files: [{ attachment: Buffer.from(batch.json), name: `sts-clawback-${withdrawId}.json` }],
+                });
+            } catch (e) {
+                // Still send the plain alert, the clawback can be executed without the delegations
+                console.log(`Failed to build clawback delegation batch for ${withdrawId}: ${e}`);
+                await sendMessage(
+                    ChannelId.SERVER_STATUS,
+                    `${content}\n\nCould not build the clawback + delegate batch: ${String(e).slice(0, 500)}`,
+                );
+            }
         }
     }
 }

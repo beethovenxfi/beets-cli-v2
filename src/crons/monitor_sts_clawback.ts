@@ -130,25 +130,39 @@ export async function checkStsClawBacks() {
                 'operatorExecuteClawBack',
             )}\nwithdrawId: ${inlineCode(String(withdrawId))}\nemergency: ${inlineCode(String(emergency))}`;
 
+            let batch;
             try {
-                const batch = await buildClawBackBatch(operatorSafe, withdrawId, request.validatorId, emergency);
-                const delegations = batch.delegations
-                    .map((d) => `• validator ${d.validatorId}: ${formatS(d.amount)}`)
-                    .join('\n');
-                await sendMessage(ChannelId.SERVER_STATUS, {
-                    content: `${content}\n\nAttached Transaction Builder batch executes the clawback (${formatS(
-                        batch.clawedBack,
-                    )} to the pool) and delegates it:\n${delegations || '• nothing, no validator has room'}${
-                        batch.undelegated > 0n ? `\nLeft in pool: ${formatS(batch.undelegated)}` : ''
-                    }\nAmounts are as of now, simulate before signing.`,
-                    files: [{ attachment: Buffer.from(batch.json), name: `sts-clawback-${withdrawId}.json` }],
-                });
+                batch = await buildClawBackBatch(operatorSafe, withdrawId, request.validatorId, emergency);
             } catch (e) {
                 // Still send the plain alert, the clawback can be executed without the delegations
                 console.log(`Failed to build clawback delegation batch for ${withdrawId}: ${e}`);
                 await sendMessage(
                     ChannelId.SERVER_STATUS,
                     `${content}\n\nCould not build the clawback + delegate batch: ${String(e).slice(0, 500)}`,
+                );
+                continue;
+            }
+
+            const delegations = batch.delegations
+                .map((d) => `• validator ${d.validatorId}: ${formatS(d.amount)}`)
+                .join('\n');
+            const batchSummary = `the clawback (${formatS(batch.clawedBack)} to the pool) and delegates it:\n${
+                delegations || '• nothing, no validator has room'
+            }${batch.undelegated > 0n ? `\nLeft in pool: ${formatS(batch.undelegated)}` : ''}`;
+            try {
+                await sendMessage(ChannelId.SERVER_STATUS, {
+                    content: `${content}\n\nAttached Transaction Builder batch executes ${batchSummary}\nAmounts are as of now, simulate before signing.`,
+                    files: [{ attachment: Buffer.from(batch.json), name: `sts-clawback-${withdrawId}.json` }],
+                });
+            } catch (e) {
+                // Usually the bot lacks the Attach Files permission in the channel, send the plan without the file
+                console.log(`Failed to send clawback batch file for ${withdrawId}: ${e}\n${batch.json}`);
+                await sendMessage(
+                    ChannelId.SERVER_STATUS,
+                    `${content}\n\nCould not attach the Transaction Builder batch (${String(e).slice(
+                        0,
+                        200,
+                    )}), JSON is in the bot log. It executes ${batchSummary}`,
                 );
             }
         }

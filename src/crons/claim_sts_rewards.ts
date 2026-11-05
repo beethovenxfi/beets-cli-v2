@@ -1,4 +1,4 @@
-import { parseUnits } from 'viem';
+import { BaseError, ContractFunctionRevertedError, parseUnits } from 'viem';
 import { ChannelId, sendMessage } from '../interactions/send-message';
 import { networkConfig } from '../config/config';
 import { publicClient, createWalletClientFromPrivateKey } from '../config/viem-client';
@@ -76,6 +76,12 @@ export async function claimAllStSRewards() {
 
         console.log(`Successfully claimed sts rewards. Tx hash: ${hash}`);
     } catch (e) {
+        // Happens when the last claim was recent (e.g. right after a restart), nothing to alert about
+        const revert = e instanceof BaseError && e.walk((err) => err instanceof ContractFunctionRevertedError);
+        if (revert instanceof ContractFunctionRevertedError && revert.data?.errorName === 'RewardsClaimedTooSmall') {
+            console.log('Skipping sts rewards claim: rewards below the minimum claim amount');
+            return;
+        }
         console.log(`Failed to claim sts rewards: ${e}`);
         await sendMessage(ChannelId.SERVER_STATUS, `Error while claiming sts rewards: ${e}`);
     }

@@ -111,18 +111,18 @@ export async function checkStsClawBacks() {
             continue;
         }
 
+        // Flags are only set once the alert went out, so a failed send is retried next tick
         if (!tracked.reportedInitiated) {
-            tracked.reportedInitiated = true;
             await sendMessage(
                 ChannelId.SERVER_STATUS,
                 `ℹ️ stS clawback ${withdrawId} initiated for validator ${request.validatorId} (${amount}). Executable from ${formatTimestamp(
                     executableAt,
                 )}.`,
             );
+            tracked.reportedInitiated = true;
         }
 
         if (!tracked.reportedExecutable && now >= executableAt) {
-            tracked.reportedExecutable = true;
             const emergency = await isValidatorSlashed(request.validatorId);
             const content = `⏰ stS clawback ${withdrawId} from validator ${request.validatorId} (${amount}) can be executed now${
                 emergency ? ' (validator is slashed, emergency=true accepts the penalty)' : ''
@@ -140,6 +140,7 @@ export async function checkStsClawBacks() {
                     ChannelId.SERVER_STATUS,
                     `${content}\n\nCould not build the clawback + delegate batch: ${String(e).slice(0, 500)}`,
                 );
+                tracked.reportedExecutable = true;
                 continue;
             }
 
@@ -165,6 +166,7 @@ export async function checkStsClawBacks() {
                     )}), JSON is in the bot log. It executes ${batchSummary}`,
                 );
             }
+            tracked.reportedExecutable = true;
         }
     }
 }

@@ -8,6 +8,9 @@ export enum ChannelId {
 }
 
 export async function sendMessage(channelId: ChannelId, message: string | MessagePayload | MessageOptions) {
-    const channel = (await client.channels.fetch(channelId)) as TextChannel;
+    // Crons start before the client is ready; until then guilds aren't cached and channels.fetch returns null
+    if (!client.isReady()) await new Promise((resolve) => client.once('ready', resolve));
+    const channel = (await client.channels.fetch(channelId)) as TextChannel | null;
+    if (!channel) throw new Error(`Discord channel ${channelId} not found`);
     await channel.send(message);
 }
